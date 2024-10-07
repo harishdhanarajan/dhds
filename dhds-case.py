@@ -7,6 +7,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RL
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.utils import ImageReader  # Import ImageReader to read images from BytesIO
 from dateutil.relativedelta import relativedelta
+from io import BytesIO
 
 def resize_and_crop(image_file, size):
     img = Image.open(image_file)
@@ -134,7 +135,8 @@ def create_pdf(data):
                 img.save(img_byte_arr, format='PNG')
                 img_byte_arr.seek(0)
                 # Use ImageReader to read image from BytesIO
-                rl_image = RLImage(ImageReader(img_byte_arr), width=img_width, height=img_height)
+                img_buffer = BytesIO(img_byte_arr)
+                rl_image = RLImage(img_buffer, width=img_width, height=img_height)
                 story.append(rl_image)
                 story.append(Spacer(1, 12))
         elif key.endswith('Picture') and value:
