@@ -5,7 +5,6 @@ import io
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.utils import ImageReader
 from dateutil.relativedelta import relativedelta
 from io import BytesIO
 
@@ -142,8 +141,8 @@ def create_pdf(data):
                     img_byte_arr = io.BytesIO()
                     img.save(img_byte_arr, format='PNG')
                     img_byte_arr.seek(0)
-                    # Use ImageReader to read image from BytesIO
-                    rl_image = RLImage(ImageReader(img_byte_arr), width=img_width, height=img_height)
+                    # Pass BytesIO directly to RLImage
+                    rl_image = RLImage(img_byte_arr, width=img_width, height=img_height)
                     story.append(rl_image)
                     story.append(Spacer(1, 12))
                 except Exception as e:
@@ -161,8 +160,8 @@ def create_pdf(data):
                 img_byte_arr = io.BytesIO()
                 img.save(img_byte_arr, format='PNG')
                 img_byte_arr.seek(0)
-                # Use ImageReader to read image from BytesIO
-                rl_image = RLImage(ImageReader(img_byte_arr), width=img_width, height=img_height)
+                # Pass BytesIO directly to RLImage
+                rl_image = RLImage(img_byte_arr, width=img_width, height=img_height)
                 story.append(rl_image)
                 story.append(Spacer(1, 12))
             except Exception as e:
