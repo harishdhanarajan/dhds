@@ -135,8 +135,7 @@ def create_pdf(data):
                 img.save(img_byte_arr, format='PNG')
                 img_byte_arr.seek(0)
                 # Use ImageReader to read image from BytesIO
-                img_buffer = BytesIO(img_byte_arr)
-                rl_image = RLImage(img_buffer, width=img_width, height=img_height)
+                rl_image = RLImage(ImageReader(img_byte_arr), width=img_width, height=img_height)
                 story.append(rl_image)
                 story.append(Spacer(1, 12))
         elif key.endswith('Picture') and value:
