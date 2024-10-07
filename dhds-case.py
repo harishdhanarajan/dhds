@@ -5,31 +5,38 @@ import io
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.utils import ImageReader  # Import ImageReader to read images from BytesIO
+from reportlab.lib.utils import ImageReader
 from dateutil.relativedelta import relativedelta
 from io import BytesIO
 
 def resize_and_crop(image_file, size):
-    img = Image.open(image_file)
-    # Resize the image to cover the target size while maintaining aspect ratio
-    img.thumbnail((size * 2, size * 2))
-    # Center crop to square
-    width, height = img.size
-    left = (width - size) / 2
-    top = (height - size) / 2
-    right = (width + size) / 2
-    bottom = (height + size) / 2
-    img = img.crop((left, top, right, bottom))
-    return img
+    try:
+        img = Image.open(image_file)
+        # Resize the image to cover the target size while maintaining aspect ratio
+        img.thumbnail((size * 2, size * 2))
+        # Center crop to square
+        width, height = img.size
+        left = (width - size) / 2
+        top = (height - size) / 2
+        right = (width + size) / 2
+        bottom = (height + size) / 2
+        img = img.crop((left, top, right, bottom))
+        return img
+    except Exception as e:
+        st.error(f"Error processing image {image_file.name}: {e}")
+        return None
 
 def display_square_images(upload_key, caption):
-    uploaded_files = st.file_uploader(caption, type=["jpg", "png", "jpeg"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader(caption, type=["jpg", "png", "jpeg"], accept_multiple_files=True, key=upload_key)
     images = []
     if uploaded_files:
         for uploaded_file in uploaded_files:
             image = resize_and_crop(uploaded_file, 300)  # 300px square
-            st.image(image, caption=uploaded_file.name, use_column_width=True)
-            images.append(uploaded_file)
+            if image:
+                st.image(image, caption=uploaded_file.name, use_column_width=True)
+                images.append(uploaded_file)
+            else:
+                st.error(f"Skipping file {uploaded_file.name} due to processing error.")
     return images
 
 # Custom CSS for better alignment
@@ -93,21 +100,21 @@ drughistory = st.text_area("Drug History *", height=150)
 
 st.header("Clinical Findings")
 intraoral = st.text_area("Intraoral Findings *")
-intraoral_pics = display_square_images("Intraoral Pictures *", "Upload Intraoral Pictures")
+intraoral_pics = display_square_images("intraoral_pics", "Upload Intraoral Pictures")
 
 extraoral = st.text_area("Extra Oral Findings *")
-extraoral_pics = display_square_images("Extra Oral Pictures *", "Upload Extra Oral Pictures")
+extraoral_pics = display_square_images("extraoral_pics", "Upload Extra Oral Pictures")
 
 st.header("Radiographic Findings")
 radiographic_findings = st.text_area("Radiographic Findings *", height=150)
-radiographic_pics = display_square_images("Radiographic Pictures *", "Upload Radiographic Pictures")
+radiographic_pics = display_square_images("radiographic_pics", "Upload Radiographic Pictures")
 
 st.header("Treatment Plan")
 treatment_plan = st.text_area("Treatment Plan *", height=150)
 
 st.header("Treatment Done and Medication Prescribed")
 treatment_done = st.text_area("Treatment Done *", height=150)
-post_op_pics = display_square_images("Post Operative Pictures *", "Upload Post Operative Pictures")
+post_op_pics = display_square_images("post_op_pics", "Upload Post Operative Pictures")
 
 def create_pdf(data):
     buffer = io.BytesIO()
@@ -125,10 +132,30 @@ def create_pdf(data):
             # Handle multiple images
             story.append(Paragraph(key, styles['Heading2']))
             for idx, img_file in enumerate(value):
-                # Read image from UploadedFile
-                img = Image.open(img_file)
+                try:
+                    # Read image from UploadedFile
+                    img = Image.open(img_file)
+                    # Resize image for PDF
+                    img_width = 400  # Adjusted width
+                    img_height = img.height * (img_width / img.width)  # Maintain aspect ratio
+                    # Convert image to BytesIO
+                    img_byte_arr = io.BytesIO()
+                    img.save(img_byte_arr, format='PNG')
+                    img_byte_arr.seek(0)
+                    # Use ImageReader to read image from BytesIO
+                    rl_image = RLImage(ImageReader(img_byte_arr), width=img_width, height=img_height)
+                    story.append(rl_image)
+                    story.append(Spacer(1, 12))
+                except Exception as e:
+                    st.error(f"Error processing image {img_file.name}: {e}")
+                    continue
+        elif key.endswith('Picture') and value:
+            # Handle single image (if any)
+            try:
+                img = Image.open(value)
+                story.append(Paragraph(key, styles['Heading2']))
                 # Resize image for PDF
-                img_width = 200  # Adjusted width
+                img_width = 400  # Adjusted width
                 img_height = img.height * (img_width / img.width)  # Maintain aspect ratio
                 # Convert image to BytesIO
                 img_byte_arr = io.BytesIO()
@@ -138,21 +165,9 @@ def create_pdf(data):
                 rl_image = RLImage(ImageReader(img_byte_arr), width=img_width, height=img_height)
                 story.append(rl_image)
                 story.append(Spacer(1, 12))
-        elif key.endswith('Picture') and value:
-            # Handle single image (if any)
-            img = Image.open(value)
-            story.append(Paragraph(key, styles['Heading2']))
-            # Resize image for PDF
-            img_width = 200  # Adjusted width
-            img_height = img.height * (img_width / img.width)  # Maintain aspect ratio
-            # Convert image to BytesIO
-            img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format='PNG')
-            img_byte_arr.seek(0)
-            # Use ImageReader to read image from BytesIO
-            rl_image = RLImage(ImageReader(img_byte_arr), width=img_width, height=img_height)
-            story.append(rl_image)
-            story.append(Spacer(1, 12))
+            except Exception as e:
+                st.error(f"Error processing image: {e}")
+                continue
         elif isinstance(value, (str, int, float, date)):
             # Add text data
             story.append(Paragraph(f"<b>{key}:</b> {value}", styles['Normal']))
@@ -173,7 +188,7 @@ if st.button("Submit"):
                         drughistory, intraoral, extraoral, radiographic_findings, 
                         treatment_plan, treatment_done]
     
-    if all(mandatory_fields):
+    if all(field.strip() if isinstance(field, str) else field for field in mandatory_fields):
         # Create a dictionary with all form data
         form_data = {
             "Full Name": name,
@@ -200,11 +215,16 @@ if st.button("Submit"):
         # Generate PDF
         pdf_data = create_pdf(form_data)
         
+        # Sanitize the file name
+        safe_name = "".join(c for c in name if c.isalnum() or c in (' ', '.', '_')).rstrip()
+        if not safe_name:
+            safe_name = "patient"
+
         # Provide download link for the PDF
         st.download_button(
             label="Download PDF",
             data=pdf_data,
-            file_name=f"case_history_{name}.pdf",
+            file_name=f"case_history_{safe_name}.pdf",
             mime="application/pdf"
         )
         
